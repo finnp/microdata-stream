@@ -1,9 +1,11 @@
 # microdata-stream
 [![NPM](https://nodei.co/npm/microdata-stream.png)](https://nodei.co/npm/microdata-stream/)
 
-This module offers very basic microdata parsing.
+This module offers very basic [microdata](https://html.spec.whatwg.org/multipage/microdata.html) parsing.
 
-There is no support for `itemid` and `itemref` yet.
+## TODO
+* support for `itemref` yet.
+* space separated attributes
 
 ## Example
 

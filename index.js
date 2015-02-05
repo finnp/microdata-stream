@@ -41,7 +41,10 @@ module.exports = function () {
         }
       }
       if('itemscope' in attrs) {
-        this.push({itemscope: 'start'})
+        var item = {itemscope: 'start'}
+        if('itemtype' in attrs) item.type = attrs.itemtype
+        if('itemid' in attrs) item.id = attrs.itemid
+        this.push(item)
         itemScopeLevels.push(level)
       }
     }
