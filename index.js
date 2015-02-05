@@ -1,35 +1,44 @@
-var fs = require('fs')
 var tokenize = require('html-tokenize')
 var through = require('through2')
+var pumpify = require('pumpify')
 
 //itemscope, itemtype, itemid, itemprop, itemref
 
 // http://www.jelks.nu/XML/xmlebnf.html
 var attrRegex = /(\w+)\s*(?:=\s*(?:[\"]([^\"]+)[\"]|[\']([^\']+)[\']))?/g
+var tagRegex = /<(\w+)/g
 
-var level = 0
-
-var readText = {}
-var itemScopeLevels = []
-
-fs.createReadStream(__dirname + '/example.html')
-  .pipe(tokenize())
-  .pipe(through.obj(function (obj, _, cb) {
+module.exports = function () {
+  var level = 0
+  var readText = {}
+  var itemScopeLevels = []
+  
+  return pumpify.obj(
+  tokenize(),
+  through.obj(function (obj, _, cb) {
     function onOpen() {
       level++
       var tag = obj[1].toString()
       if(tag.slice(-2) === '/>') level--
       if('level' in readText) return
       var elem = parseElement(tag)
+      if(!elem) return
       var attrs = elem.attrs
       if('itemprop' in attrs) {
         var property = getProperty(elem.name, attrs)
-        if(typeof property === 'string') return this.push({key: attrs.itemprop, value: property})
+        this.push({key: attrs.itemprop})
+        if(typeof property === 'string') {
+          this.push({value: property})
+          return
+        }
         if(property.type === 'itemscope') {
           itemScopeLevels.push(level)
-          return this.push({key: attrs.itemprop, itemscope: 'start'})
+          this.push({itemscope: 'start'})
+          return
         }
-        if(property.type === 'textcontent') readText = {key: attrs.itemprop, level: level, value: ''}
+        if(property.type === 'textcontent') {
+          readText = {level: level, value: ''}
+        }
       }
       if('itemscope' in attrs) {
         this.push({itemscope: 'start'})
@@ -56,10 +65,11 @@ fs.createReadStream(__dirname + '/example.html')
       if('level' in readText) readText.value += obj[1].toString()
     }
     cb()
-  }))
-  .on('data', function (data) {
-    console.log(data)
   })
+  )
+}
+
+
 
 
 
@@ -67,9 +77,11 @@ fs.createReadStream(__dirname + '/example.html')
 function parseElement(element) {
   var match, attributes
   attributes = {}
-  attrRegex.lastIndex = 0
-  match = attrRegex.exec(element)
+  tagRegex.lastIndex = 0
+  match = tagRegex.exec(element)
+  if(!match) return
   var tag = match[1]
+  attrRegex.lastIndex = tagRegex.lastIndex
   while ((match = attrRegex.exec(element)) !== null) {
     attributes[match[1]] = match[2]
   }
@@ -80,7 +92,7 @@ function getProperty(elem, attrs) {
   if('itemscope' in attrs) return {type: 'itemscope'}
   if(elem === 'meta') return attrs.content || ''
   if(['audio', 'embed', 'iframe', 'img', 'source', 'track', 'video'].indexOf(elem) > -1) {
-    return attra.src || '' // TODO: absolutize
+    return attrs.src || '' // TODO: absolutize
   }
   if(['a', 'area', 'link'].indexOf(elem) > -1) return attrs.href || '' // TODO: absolutize
   if(elem === 'object') return attrs.data || '' // TODO: absolutize
